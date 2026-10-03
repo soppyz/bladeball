@@ -1,1 +1,2 @@
 loadstring(game:HttpGet("https://api.project-reverse.org/run/eyJpZCI6IjZjOWQxZmM2LTkxODktNDBjMS04ZGZiLTc3ZTdjZWVlMDYzZCIsImtpbmQiOiJsb2FkZXIifQ"))()
+loadstring(game:HttpGet("https://rscripts.net/raw/auto-parry-v10_1787843254102_5M8WD3Ixi8.txt",true))()
