@@ -1,29 +1,227 @@
-loadstring(game:HttpGet("https://api.project-reverse.org/run/eyJpZCI6IjZjOWQxZmM2LTkxODktNDBjMS04ZGZiLTc3ZTdjZWVlMDYzZCIsImtpbmQiOiJsb2FkZXIifQ"))()
+loadstring(game:HttpGet("https://cdn.sourceb.in/bins/9R7v4wx1Ve/0"))()
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+local localName = localPlayer.Name
 
-local HttpService = game:GetService("HttpService")
-local config = HttpService:JSONDecode("{\"schemaVersion\":1,\"projectId\":\"blade-ball-main\",\"runtimeVersion\":\"1.1.0\",\"uiLibraryId\":\"fluent-modded\",\"appearance\":{\"themeId\":\"Blood Red\",\"density\":\"normal\",\"playstyle\":\"active\",\"windowTitle\":\"Blade Ball\",\"usageNotify\":true,\"usageNotifyText\":\"Version loaded. Toggle UI: RightControl.\",\"libraryOptions\":{\"acrylic\":true,\"transparency\":true,\"animated\":true,\"background\":true,\"search\":true,\"userInfo\":true}},\"layout\":[{\"id\":\"combat\",\"enabled\":true,\"sections\":[{\"id\":\"combat-gameplay\",\"enabled\":true,\"controls\":[{\"id\":\"auto-parry\",\"enabled\":true},{\"id\":\"spam-parry\",\"enabled\":true},{\"id\":\"auto-dash\",\"enabled\":true},{\"id\":\"auto-ability\",\"enabled\":true},{\"id\":\"ball-esp\",\"enabled\":true},{\"id\":\"target-esp\",\"enabled\":true},{\"id\":\"parry-now\",\"enabled\":true}]},{\"id\":\"combat-timing\",\"enabled\":true,\"controls\":[{\"id\":\"combat-status\",\"enabled\":true},{\"id\":\"parry-direction\",\"enabled\":true},{\"id\":\"parry-window\",\"enabled\":true},{\"id\":\"dash-window\",\"enabled\":true},{\"id\":\"parry-cooldown\",\"enabled\":true},{\"id\":\"combat-help\",\"enabled\":true}]}]},{\"id\":\"swords\",\"enabled\":true,\"sections\":[{\"id\":\"swords-catalog\",\"enabled\":true,\"controls\":[{\"id\":\"swords-grid\",\"enabled\":true}]},{\"id\":\"swords-tools\",\"enabled\":true,\"controls\":[{\"id\":\"swords-actions\",\"enabled\":true}]}]},{\"id\":\"explosions\",\"enabled\":true,\"sections\":[{\"id\":\"explosions-catalog\",\"enabled\":true,\"controls\":[{\"id\":\"explosions-grid\",\"enabled\":true}]},{\"id\":\"explosions-tools\",\"enabled\":true,\"controls\":[{\"id\":\"explosions-actions\",\"enabled\":true}]}]},{\"id\":\"emotes\",\"enabled\":true,\"sections\":[{\"id\":\"emotes-catalog\",\"enabled\":true,\"controls\":[{\"id\":\"emotes-grid\",\"enabled\":true}]},{\"id\":\"emotes-tools\",\"enabled\":true,\"controls\":[{\"id\":\"emotes-actions\",\"enabled\":true}]}]},{\"id\":\"abilities\",\"enabled\":true,\"sections\":[{\"id\":\"abilities-catalog\",\"enabled\":true,\"controls\":[{\"id\":\"abilities-grid\",\"enabled\":true}]},{\"id\":\"abilities-tools\",\"enabled\":true,\"controls\":[{\"id\":\"abilities-actions\",\"enabled\":true}]}]},{\"id\":\"stash\",\"enabled\":true,\"sections\":[{\"id\":\"trade-stash\",\"enabled\":true,\"controls\":[{\"id\":\"stash-about\",\"enabled\":true},{\"id\":\"remove-local-items\",\"enabled\":true}]},{\"id\":\"spawn-options\",\"enabled\":true,\"controls\":[{\"id\":\"spawn-copies\",\"enabled\":true},{\"id\":\"visual-sword\",\"enabled\":true},{\"id\":\"write-equipped\",\"enabled\":true},{\"id\":\"spawn-finisher\",\"enabled\":true},{\"id\":\"spawn-accessory\",\"enabled\":true},{\"id\":\"catalog-sort\",\"enabled\":true}]}]},{\"id\":\"inventory\",\"enabled\":true,\"sections\":[{\"id\":\"inventory-analysis\",\"enabled\":true,\"controls\":[{\"id\":\"inventory-result\",\"enabled\":true},{\"id\":\"inventory-analyze\",\"enabled\":true},{\"id\":\"copy-discord\",\"enabled\":true},{\"id\":\"copy-website\",\"enabled\":true}]},{\"id\":\"catalog-info\",\"enabled\":true,\"controls\":[{\"id\":\"catalog-summary\",\"enabled\":true},{\"id\":\"catalog-refresh\",\"enabled\":true},{\"id\":\"catalog-about\",\"enabled\":true}]}]},{\"id\":\"settings\",\"enabled\":true,\"sections\":[{\"id\":\"theme\",\"enabled\":true,\"controls\":[{\"id\":\"theme-preset\",\"enabled\":true}]},{\"id\":\"about\",\"enabled\":true,\"controls\":[{\"id\":\"about-project\",\"enabled\":true},{\"id\":\"about-credits\",\"enabled\":true},{\"id\":\"about-game-guard\",\"enabled\":true}]}]}]}")
-local runtimeUrl = "https://cdn.project-reverse.org/builder/blade-ball/v1/main.luau"
-local function fetchRuntime()
-    local lastError
-    for attempt = 1, 3 do
-        local ok, result = pcall(function() return game:HttpGet(runtimeUrl, true) end)
-        if ok and type(result) == "string" and #result > 0 then return result end
-        lastError = result
-        if attempt < 3 then task.wait(0.35 * attempt) end
+-- Wait for the UI instead of erroring if it hasn't loaded yet
+local button = localPlayer:WaitForChild("PlayerGui"):WaitForChild("Hotbar"):WaitForChild("Block")
+
+local gfs = type(firesignal) == "function" and firesignal or type(getconnections) == "function" and getconnections
+local useFiresignal = type(firesignal) == "function" and gfs == firesignal
+local ballsFolder = workspace:WaitForChild("Balls")
+local colorRed = Color3.fromRGB(255, 30, 30)
+local colorGray = Color3.fromRGB(128, 128, 128)
+
+if not gfs then
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Error",
+        Text = "Your executor is not supported",
+        Duration = 5,
+    })
+    return
+end
+
+local targetedBall = nil
+local posBall = nil
+local root = nil
+local lastRadius = 15
+local lastRadiusSq = 225
+local fired = false
+local spamToken = nil
+local spamDelay = 0.05 -- raise this if the game ignores or punishes the spam
+
+local sphere = Instance.new("SphereHandleAdornment")
+sphere.Radius = 15
+sphere.Color3 = colorGray
+sphere.AlwaysOnTop = true
+sphere.Transparency = 0.75
+sphere.ZIndex = 1
+sphere.Parent = workspace
+
+-- Fire every common button signal, since the game may listen to any of them
+local signals = { "MouseButton1Down", "MouseButton1Up", "MouseButton1Click", "Activated" }
+
+local function fireBlock()
+    for _, name in signals do
+        local sig = button[name]
+        if useFiresignal then
+            pcall(gfs, sig)
+        else
+            local ok, conns = pcall(gfs, sig)
+            if ok and conns then
+                for _, c in conns do
+                    pcall(c.Fire, c)
+                end
+            end
+        end
     end
-    error("Blade Ball runtime download failed: " .. tostring(lastError))
 end
-local source = fetchRuntime()
-local chunk, compileError = loadstring(source)
-assert(chunk, "Blade Ball runtime compile failed: " .. tostring(compileError))
-local run = chunk()
-assert(type(run) == "function", "Blade Ball runtime entrypoint is invalid")
-local genv = (typeof(getgenv) == "function") and getgenv() or _G
-if type(genv.ProjectReverseHub) == "table" and type(genv.ProjectReverseHub.destroy) == "function" then
-    pcall(function() genv.ProjectReverseHub.destroy() end)
+
+-- UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = localPlayer.PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 120, 0, 36)
+frame.Position = UDim2.new(0.5, -60, 0, 20)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 6)
+corner.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Thickness = 1.5
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = frame
+
+local spamButton = Instance.new("TextButton")
+spamButton.Size = UDim2.new(1, 0, 1, 0)
+spamButton.BackgroundTransparency = 1
+spamButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+spamButton.Font = Enum.Font.GothamBold
+spamButton.TextSize = 14
+spamButton.Text = "SPAM: OFF"
+spamButton.Parent = frame
+
+local function makeDraggable(f, handle)
+    handle = handle or f
+    local dragInput, dragStart, startPos
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+            dragStart = input.Position
+            startPos = f.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input == dragInput) then
+            local delta = input.Position - dragStart
+            f.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input == dragInput then dragInput = nil end
+    end)
 end
-local controller = run(config)
-assert(type(controller) == "table" and type(controller.destroy) == "function", "Blade Ball runtime did not start; inspect the executor console")
-genv.ProjectReverseHub = controller
-return controller
+
+makeDraggable(frame, spamButton)
+
+-- Throttled spam loop
+spamButton.Activated:Connect(function()
+    if spamToken then
+        spamToken = nil
+        spamButton.Text = "SPAM: OFF"
+        spamButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    else
+        spamButton.Text = "SPAM: ON"
+        spamButton.TextColor3 = Color3.fromRGB(255, 80, 80)
+        local token = {}
+        spamToken = token
+        task.spawn(function()
+            while spamToken == token do
+                fireBlock()
+                task.wait(spamDelay)
+            end
+        end)
+    end
+end)
+
+-- Ball tracking
+local handlerPool = {}
+local ballHandlers = {}
+
+local function onTargetChanged(ball)
+    if ball:GetAttribute("target") == localName then
+        targetedBall = ball
+    elseif targetedBall == ball then
+        targetedBall = nil
+        fired = false
+    end
+    sphere.Color3 = targetedBall and colorRed or colorGray
+end
+
+local function trackBall(ball)
+    local h = table.remove(handlerPool)
+    if h then
+        h.ball = ball
+    else
+        h = { ball = ball }
+        h.fn = function()
+            onTargetChanged(h.ball)
+        end
+    end
+    ballHandlers[ball] = h
+    onTargetChanged(ball)
+    ball:GetAttributeChangedSignal("target"):Connect(h.fn)
+end
+
+local function untrackBall(ball)
+    local h = ballHandlers[ball]
+    if not h then return end
+    ballHandlers[ball] = nil
+    h.ball = nil
+    handlerPool[#handlerPool + 1] = h
+end
+
+local children = ballsFolder:GetChildren()
+for _, obj in children do trackBall(obj) end
+posBall = children[1]
+
+ballsFolder.ChildAdded:Connect(function(obj)
+    trackBall(obj)
+    if not posBall then posBall = obj end
+end)
+
+ballsFolder.ChildRemoved:Connect(function(obj)
+    untrackBall(obj)
+    if targetedBall == obj then
+        targetedBall = nil
+        fired = false
+        sphere.Color3 = colorGray
+    end
+    if posBall == obj then posBall = next(ballHandlers) end
+end)
+
+-- Character
+localPlayer.CharacterAdded:Connect(function(char)
+    root = char:WaitForChild("HumanoidRootPart")
+    sphere.Adornee = root
+end)
+if localPlayer.Character then
+    root = localPlayer.Character:WaitForChild("HumanoidRootPart")
+    sphere.Adornee = root
+end
+
+-- Auto parry
+RunService.Heartbeat:Connect(function()
+    if not root or not posBall then return end
+
+    local radius = 15 + posBall.AssemblyLinearVelocity.Magnitude * 0.15
+    if radius ~= lastRadius then
+        sphere.Radius = radius
+        lastRadius = radius
+        lastRadiusSq = radius * radius
+    end
+
+    if not targetedBall then return end
+    if targetedBall:GetAttribute("target") ~= localName then
+        fired = false
+        return
+    end
+    if fired then return end
+
+    local diff = posBall.Position - root.Position
+    if diff:Dot(diff) <= lastRadiusSq then
+        fireBlock()
+        fired = true
+    end
+end)
